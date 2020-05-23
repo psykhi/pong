@@ -17,36 +17,33 @@ type ball struct {
 }
 
 type player struct {
-	p1 position
-	p2 position
+	top    position
+	bottom position
 }
 
 const ticks = 60
 
 var done = make(chan struct{})
 
-func main() {
-	fmt.Println("Start")
-	doc := js.Global().Get("document")
-	width := doc.Get("body").Get("clientWidth").Float()
-	height := doc.Get("body").Get("clientHeight").Float()
-	c := NewCanvas("canvas", width, height)
-	players := []player{{p1: position{
-		x: 0,
-		y: 0.4,
-	}, p2: position{
-		x: 0,
-		y: 0.6,
-	}},
-		{p1: position{
+func initState() GameState {
+	p1 := player{
+		top: position{
+			x: 0,
+			y: 0.4,
+		}, bottom: position{
+			x: 0,
+			y: 0.6,
+		},
+	}
+	p2 := player{
+		top: position{
 			x: 1,
 			y: 0.4,
-		}, p2: position{
+		}, bottom: position{
 			x: 1,
 			y: 0.6,
-		}},
+		},
 	}
-
 	ball := ball{
 		p: position{
 			x: 0.5,
@@ -54,19 +51,78 @@ func main() {
 		},
 		r: 0.01,
 	}
+	speed := position{
+		x: 0.01,
+		y: 0,
+	}
 
-	fmt.Println("go the canvas")
+	return GameState{
+		ball:      ball,
+		p1:        p1,
+		p2:        p2,
+		ballSpeed: speed,
+	}
+
+}
+
+type inputs struct {
+	up   bool
+	down bool
+}
+
+func main() {
+	fmt.Println("Start")
+	doc := js.Global().Get("document")
+	width := doc.Get("body").Get("clientWidth").Float()
+	height := doc.Get("body").Get("clientHeight").Float()
+	c := NewCanvas("canvas", width, height)
+	e := Engine{}
+
+	s := initState()
+	inputs := inputs{}
+	keyDown := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		e := args[0]
+		code := e.Get("keyCode")
+		switch code.Int() {
+		case 38:
+			inputs.down = true
+		case 40:
+			inputs.up = true
+		}
+		return nil
+	})
+	defer keyDown.Release()
+
+	keyUp := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		e := args[0]
+		code := e.Get("keyCode")
+		switch code.Int() {
+		case 38:
+			inputs.down = false
+		case 40:
+			inputs.up = false
+		}
+		return nil
+	})
+	defer keyUp.Release()
+
+	js.Global().Get("document").Call("addEventListener", "keydown", keyDown)
+	js.Global().Get("document").Call("addEventListener", "keyup", keyUp)
+
 	go func() {
-		fmt.Println("starting loop")
 		t := time.Tick(time.Second / ticks)
 		for {
 			select {
 			case <-t:
-				fmt.Println("rendering")
-				c.render(players, ball)
+				s = e.Process(s, inputs, inputs)
+				c.render(s)
 			}
 		}
 	}()
 
 	<-done
+}
+
+func input() {
+
 }
