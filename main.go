@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"syscall/js"
 	"time"
 )
@@ -11,18 +12,16 @@ type position struct {
 	y float64
 }
 
+func (p position) L2() float64 {
+	return math.Sqrt(p.x*p.x + p.y*p.y)
+}
+
 type ball struct {
 	p position
 	r float64
 }
 
-type player struct {
-	bottom position
-	top    position
-	width  float64
-}
-
-const ticks = 60
+const ticks = 120
 
 var done = make(chan struct{})
 
@@ -69,6 +68,11 @@ func main() {
 
 	js.Global().Get("document").Call("addEventListener", "keydown", keyDown)
 	js.Global().Get("document").Call("addEventListener", "keyup", keyUp)
+	render := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		c.render(s)
+		return nil
+	})
+	defer render.Release()
 
 	go func() {
 		t := time.Tick(time.Second / ticks)
@@ -76,10 +80,13 @@ func main() {
 			select {
 			case <-t:
 				s = e.Process(s, inputs, inputs)
-				c.render(s)
+				//c.render(s)
+				js.Global().Call("requestAnimationFrame", render)
 			}
 		}
 	}()
+
+	js.Global().Call("requestAnimationFrame", render)
 
 	<-done
 }

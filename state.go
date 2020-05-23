@@ -10,20 +10,20 @@ type GameState struct {
 func (s *GameState) Reset() {
 	p1 := player{
 		bottom: position{
-			x: 0,
+			x: 0.1,
 			y: 0.4,
 		}, top: position{
-			x: 0,
+			x: 0.1,
 			y: 0.6,
 		},
 		width: 0.01,
 	}
 	p2 := player{
 		bottom: position{
-			x: 1,
+			x: 0.9,
 			y: 0.4,
 		}, top: position{
-			x: 1,
+			x: 0.9,
 			y: 0.6,
 		},
 		width: 0.01,
@@ -36,7 +36,7 @@ func (s *GameState) Reset() {
 		r: 0.01,
 	}
 	speed := position{
-		x: 0.01,
+		x: 0.005,
 		y: 0.001,
 	}
 

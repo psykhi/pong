@@ -93,13 +93,39 @@ func (e *Engine) CollisionsWithPlayer(s *GameState, p player) {
 	//fmt.Println("BOTOOM", p.top)
 	//fmt.Println("TOP", p.bottom)
 	if d < b.r {
-		//fmt.Println("COLLISION", b.p.x, p.bottom.x)
-		s.ballSpeed.x = -s.ballSpeed.x
+		//fmt.Println("COLLISION", b.p.y, p.bottom.y, p.offsetRatio(b.p.y))
+
+		offsetAngle := p.offsetRatio(b.p.y) * math.Pi / 3
+		//fmt.Println("added angle", offsetAngle*(180/math.Pi))
+
+		speed := s.ballSpeed.L2() + 0.01*s.ballSpeed.L2()
+		s.ballSpeed.y = 0
+		if s.ballSpeed.x < 0 {
+			s.ballSpeed.x = speed
+			s.ballSpeed = rotate(s.ballSpeed, offsetAngle)
+
+		} else {
+			s.ballSpeed.x = -speed
+			s.ballSpeed = rotate(s.ballSpeed, -offsetAngle)
+		}
+
+		//inAngle := math.Atan(s.ballSpeed.y / s.ballSpeed.x)
+		//fmt.Println("angle", inAngle*(180/math.Pi))
+		//s.ballSpeed.y = p.offsetRatio(b.p.y) * 0.005
 		if b.p.x+b.r > p.bottom.x+p.width/2 {
 			b.p.x = p.bottom.x - p.width/2 - b.r
 		}
 		if b.p.x-b.r < p.bottom.x-p.width/2 {
 			b.p.x = p.bottom.x + p.width/2 + b.r
 		}
+	}
+}
+
+func rotate(v position, angle float64) position {
+	x2 := v.x*math.Cos(angle) - v.y*math.Sin(angle)
+	y2 := v.x*math.Sin(angle) + v.y*math.Cos(angle)
+	return position{
+		x: x2,
+		y: y2,
 	}
 }
