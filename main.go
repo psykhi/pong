@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"syscall/js"
 	"time"
 )
 
@@ -26,7 +27,10 @@ var done = make(chan struct{})
 
 func main() {
 	fmt.Println("Start")
-	c := NewCanvas("canvas", 1000, 1000)
+	doc := js.Global().Get("document")
+	width := doc.Get("body").Get("clientWidth").Float()
+	height := doc.Get("body").Get("clientHeight").Float()
+	c := NewCanvas("canvas", width, height)
 	players := []player{{p1: position{
 		x: 0,
 		y: 0.4,

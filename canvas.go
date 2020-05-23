@@ -6,12 +6,12 @@ import (
 )
 
 type Canvas struct {
-	w  int
-	h  int
+	w  float64
+	h  float64
 	id string
 }
 
-func NewCanvas(id string, width, height int) *Canvas {
+func NewCanvas(id string, width, height float64) *Canvas {
 	canvas := js.
 		Global().
 		Get("document").
