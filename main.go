@@ -17,53 +17,14 @@ type ball struct {
 }
 
 type player struct {
-	top    position
 	bottom position
+	top    position
+	width  float64
 }
 
 const ticks = 60
 
 var done = make(chan struct{})
-
-func initState() GameState {
-	p1 := player{
-		top: position{
-			x: 0,
-			y: 0.4,
-		}, bottom: position{
-			x: 0,
-			y: 0.6,
-		},
-	}
-	p2 := player{
-		top: position{
-			x: 1,
-			y: 0.4,
-		}, bottom: position{
-			x: 1,
-			y: 0.6,
-		},
-	}
-	ball := ball{
-		p: position{
-			x: 0.5,
-			y: 0.5,
-		},
-		r: 0.01,
-	}
-	speed := position{
-		x: 0.01,
-		y: 0,
-	}
-
-	return GameState{
-		ball:      ball,
-		p1:        p1,
-		p2:        p2,
-		ballSpeed: speed,
-	}
-
-}
 
 type inputs struct {
 	up   bool
@@ -78,7 +39,7 @@ func main() {
 	c := NewCanvas("canvas", width, height)
 	e := Engine{}
 
-	s := initState()
+	s := NewState()
 	inputs := inputs{}
 	keyDown := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		e := args[0]
@@ -121,8 +82,4 @@ func main() {
 	}()
 
 	<-done
-}
-
-func input() {
-
 }

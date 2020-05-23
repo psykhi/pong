@@ -39,16 +39,16 @@ func (c *Canvas) context() js.Value {
 }
 
 func (c *Canvas) drawLine(l player) {
-	c.context().Set("lineWidth", 10)
+	c.context().Set("lineWidth", l.width*c.w)
 	c.context().Call("beginPath")
-	c.context().Call("moveTo", l.bottom.x*float64(c.w), l.bottom.y*float64(c.h))
-	c.context().Call("lineTo", l.top.x*float64(c.w), l.top.y*float64(c.h))
+	c.context().Call("moveTo", l.top.x*c.w, l.top.y*c.h)
+	c.context().Call("lineTo", l.bottom.x*c.w, l.bottom.y*c.h)
 	c.context().Call("stroke")
 }
 
 func (c *Canvas) drawBall(b ball) {
 	c.context().Call("beginPath")
-	c.context().Call("arc", b.p.x*float64(c.w), b.p.y*float64(c.h), b.r*float64(c.w), 0, 3*math.Pi)
+	c.context().Call("arc", b.p.x*c.w, b.p.y*c.h, b.r*c.w, 0, 3*math.Pi)
 	c.context().Set("fillStyle", "red")
 	c.context().Call("fill")
 }
