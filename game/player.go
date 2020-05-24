@@ -1,9 +1,11 @@
 package game
 
 type Player struct {
-	Bottom position
-	Top    position
-	Width  float64
+	Bottom    Position
+	Top       Position
+	Width     float64
+	Score     int
+	Connected bool
 }
 
 func (p Player) Center() float64 {

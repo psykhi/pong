@@ -1,13 +1,16 @@
 package server
 
 import (
-	"github.com/gorilla/websocket"
+	"context"
+	"encoding/json"
 	"github.com/psykhi/pong/game"
+	"nhooyr.io/websocket"
 )
 
 type InputUpdate struct {
-	playerID int
-	inputs   game.Inputs
+	playerID   int
+	inputs     game.Inputs
+	disconnect bool
 }
 
 type PlayerConn struct {
@@ -18,16 +21,29 @@ type PlayerConn struct {
 }
 
 func (pc *PlayerConn) Start() {
-	err := pc.WriteJSON(ActionPayload{message: "start"})
+	ap := ActionPayload{message: "start"}
+	b, _ := json.Marshal(ap)
+	err := pc.Write(context.Background(), websocket.MessageText, b)
 	if err != nil {
 		panic(err)
 	}
 
 	for {
-		err := pc.ReadJSON(&pc.in)
+		_, b, err := pc.Read(context.Background())
+		if err != nil {
+			// player disconnected!
+			pc.updateCh <- InputUpdate{
+				playerID:   pc.id,
+				inputs:     pc.in,
+				disconnect: true,
+			}
+			return
+		}
+		err = json.Unmarshal(b, &pc.in)
 		if err != nil {
 			panic(err)
 		}
+		//fmt.Println("Got player inputs")
 		pc.updateCh <- InputUpdate{
 			playerID: pc.id,
 			inputs:   pc.in,

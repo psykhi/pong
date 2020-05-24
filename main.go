@@ -2,10 +2,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/gorilla/websocket"
-	"github.com/psykhi/pong/client"
 	"github.com/psykhi/pong/game"
-	"net/url"
+	"github.com/psykhi/pong/render"
 	"syscall/js"
 	"time"
 )
@@ -17,10 +15,11 @@ func main() {
 	doc := js.Global().Get("document")
 	width := doc.Get("body").Get("clientWidth").Float()
 	height := doc.Get("body").Get("clientHeight").Float()
-	c := client.NewCanvas("canvas", width, height)
+	c := render.NewCanvas("canvas", width, height)
 	e := game.Engine{}
 
 	s := game.NewState()
+	s.WaitingForPlayer = true
 	inputs := game.Inputs{}
 	keyDown := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		e := args[0]
@@ -52,43 +51,39 @@ func main() {
 	js.Global().Get("document").Call("addEventListener", "keyup", keyUp)
 	render := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		c.Render(*s)
+		//fmt.Println("render")
 		return nil
 	})
 	defer render.Release()
 
-	// Connect
-	u := url.URL{Scheme: "ws", Host: "localhost:3010", Path: "/game"}
-
-	fmt.Println("Connecting to server..", u.String())
-	spectateConn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
-	if err != nil {
-		panic(err)
-	}
-	defer spectateConn.Close()
-	fmt.Println("Connected to server!")
-
 	sCh := make(chan game.State)
 
-	go func() {
-		s := game.State{}
-		err := spectateConn.ReadJSON(&s)
-		fmt.Println("got state from server", s)
-		if err != nil {
-			panic(err)
-		}
-		sCh <- s
-	}()
+	client := NewClient(sCh)
+	client.Connect()
 
 	go func() {
 		t := time.Tick(time.Second / game.TICKRATE)
 		for {
 			select {
 			case <-t:
-				*s = e.Process(*s, inputs, inputs)
+				if client.playerID == 0 {
+					*s = e.Process(*s, inputs, game.Inputs{})
+				}
+				if client.playerID == 1 {
+					*s = e.Process(*s, game.Inputs{}, inputs)
+				}
+				//fmt.Println(s.Ball.P.X)
+				//fmt.Println(s.Ball.P.Y)
+				//fmt.Println(s.Ball.P.Y)
+				//fmt.Println("local render")
 				js.Global().Call("requestAnimationFrame", render)
+				client.sendInputs(inputs)
 			case serverState := <-sCh:
-				fmt.Println("Got server state")
+				//fmt.Println("Got server state")
+				//fmt.Println(serverState)
 				*s = serverState
+				js.Global().Call("requestAnimationFrame", render)
+
 			}
 		}
 	}()
