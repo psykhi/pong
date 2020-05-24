@@ -1,7 +1,22 @@
 package main
 
-import "github.com/psykhi/pong/server"
+import (
+	"fmt"
+	"github.com/psykhi/pong/server"
+	"os"
+	"os/signal"
+	"syscall"
+)
 
 func main() {
-	server.NewServer().Start()
+	s := server.NewServer()
+	s.Start()
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		fmt.Println("\r- Ctrl+C pressed in Terminal")
+		s.Stop()
+		os.Exit(0)
+	}()
 }

@@ -2,14 +2,17 @@ package server
 
 import (
 	"encoding/json"
+	"github.com/gorilla/websocket"
 	"github.com/psykhi/pong/game"
 	"net/http"
 )
 import "github.com/satori/go.uuid"
 
 type Server struct {
-	games   map[string]*game.State
-	waiting map[string]*game.State
+	games    map[string]*GameInstance ``
+	waiting  map[string]*GameInstance
+	Mux      *http.ServeMux
+	WsServer *http.Server
 }
 
 type Response struct {
@@ -19,8 +22,8 @@ type Response struct {
 
 func NewServer() *Server {
 	return &Server{
-		games:   map[string]*game.State{},
-		waiting: map[string]*game.State{},
+		games:   map[string]*GameInstance{},
+		waiting: map[string]*GameInstance{},
 	}
 }
 
@@ -38,15 +41,66 @@ func (s *Server) Start() {
 		}
 		g := game.NewState()
 		id := uuid.NewV4()
-		s.waiting[id.String()] = g
-		s.waiting[id.String()] = g
+		s.waiting[id.String()] = &GameInstance{State: g}
 		s.SendResponse(writer, id.String(), 0)
 	})
+	sm.HandleFunc("/game", func(writer http.ResponseWriter, request *http.Request) {
+		up := &websocket.Upgrader{}
+		c, err := up.Upgrade(writer, request, nil)
+		if err != nil {
+			panic(err)
+		}
+		cp := ConnectPayload{}
+		//expect a client connecting
+		err = c.ReadJSON(&cp)
+		if err != nil {
+			panic(err)
+		}
+		// Find the game
+		g, ok := s.games[cp.GameID]
+		if !ok {
+			err = c.WriteJSON(ok)
+			if err != nil {
+				panic(err)
+			}
+		}
+		// pass the connection to the game itself
+		g.ConnectPlayer(cp.PlayerID, c)
+	})
 
-	err := http.ListenAndServe(":3010", sm)
+	sm.HandleFunc("/watch", func(writer http.ResponseWriter, request *http.Request) {
+		up := &websocket.Upgrader{}
+		c, err := up.Upgrade(writer, request, nil)
+		if err != nil {
+			panic(err)
+		}
+		cp := ConnectPayload{}
+		//expect a client connecting
+		err = c.ReadJSON(&cp)
+		if err != nil {
+			panic(err)
+		}
+		// Find the game
+		g, ok := s.games[cp.GameID]
+		if !ok {
+			err = c.WriteJSON(ok)
+			if err != nil {
+				panic(err)
+			}
+		}
+		g.addSpectator(c)
+	})
+
+	server := http.Server{Handler: sm, Addr: ":3010"}
+
+	err := server.ListenAndServe()
 	if err != nil {
 		panic(err)
 	}
+}
+
+func (s *Server) Stop() {
+	s.WsServer.Close()
 }
 
 func (s *Server) SendResponse(w http.ResponseWriter, gameID string, playerID int) {
@@ -63,5 +117,4 @@ func (s *Server) SendResponse(w http.ResponseWriter, gameID string, playerID int
 	if err != nil {
 		panic(err)
 	}
-
 }

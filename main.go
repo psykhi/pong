@@ -2,18 +2,18 @@ package main
 
 import (
 	"fmt"
+	"github.com/gorilla/websocket"
 	"github.com/psykhi/pong/client"
 	"github.com/psykhi/pong/game"
+	"net/url"
 	"syscall/js"
 	"time"
 )
 
-const ticks = 120
-
 var done = make(chan struct{})
 
 func main() {
-	fmt.Println("Start")
+	fmt.Println("BLAB Start")
 	doc := js.Global().Get("document")
 	width := doc.Get("body").Get("clientWidth").Float()
 	height := doc.Get("body").Get("clientHeight").Float()
@@ -56,13 +56,39 @@ func main() {
 	})
 	defer render.Release()
 
+	// Connect
+	u := url.URL{Scheme: "ws", Host: "localhost:3010", Path: "/game"}
+
+	fmt.Println("Connecting to server..", u.String())
+	spectateConn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	if err != nil {
+		panic(err)
+	}
+	defer spectateConn.Close()
+	fmt.Println("Connected to server!")
+
+	sCh := make(chan game.State)
+
 	go func() {
-		t := time.Tick(time.Second / ticks)
+		s := game.State{}
+		err := spectateConn.ReadJSON(&s)
+		fmt.Println("got state from server", s)
+		if err != nil {
+			panic(err)
+		}
+		sCh <- s
+	}()
+
+	go func() {
+		t := time.Tick(time.Second / game.TICKRATE)
 		for {
 			select {
 			case <-t:
 				*s = e.Process(*s, inputs, inputs)
 				js.Global().Call("requestAnimationFrame", render)
+			case serverState := <-sCh:
+				fmt.Println("Got server state")
+				*s = serverState
 			}
 		}
 	}()

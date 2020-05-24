@@ -9,6 +9,8 @@ type Inputs struct {
 	Down bool
 }
 
+const TICKRATE = 128
+
 type Engine struct {
 }
 
