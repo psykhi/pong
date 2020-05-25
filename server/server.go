@@ -15,6 +15,13 @@ type Server struct {
 	waiting  map[string]*GameInstance
 	Mux      *http.ServeMux
 	WsServer *http.Server
+	config   Config
+}
+type Config struct {
+	Port       string `default:":8080"`
+	Address    string `default:"localhost"`
+	HTTPScheme string `envconfig:"http" default:"http"`
+	WsScheme   string `envconfig:"ws" default:"ws"`
 }
 
 type Response struct {
@@ -22,15 +29,11 @@ type Response struct {
 	PlayerID int
 }
 
-const PORT = ":8080"
-const ADDRESS = "pong-wasm.ew.r.appspot.com"
-const HTTP_SCHEME = "https://"
-const WS_SCHEME = "wss"
-
-func NewServer() *Server {
+func NewServer(c Config) *Server {
 	return &Server{
 		games:   sync.Map{},
 		waiting: map[string]*GameInstance{},
+		config:  c,
 	}
 }
 
@@ -113,7 +116,7 @@ func (s *Server) Start() {
 		g.(*GameInstance).addSpectator(c)
 	})
 
-	server := http.Server{Handler: cors.Default().Handler(sm), Addr: PORT}
+	server := http.Server{Handler: cors.Default().Handler(sm), Addr: s.config.Port}
 
 	err := server.ListenAndServe()
 	if err != nil {

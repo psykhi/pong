@@ -18,9 +18,22 @@ type client struct {
 	playerID  int
 	StateCh   chan game.State
 }
+type Config struct {
+	Port       string `default:"8080"`
+	Address    string `default:"localhost"`
+	HTTPScheme string `envconfig:"http" default:"http"`
+	WsScheme   string `envconfig:"ws" default:"ws"`
+}
+
+var Conf = Config{
+	Port:       ":8080",
+	Address:    "localhost",
+	HTTPScheme: "http://",
+	WsScheme:   "ws",
+}
 
 func NewClient(ch chan game.State) *client {
-	resp, err := http.Get("https://" + server.ADDRESS + "/play")
+	resp, err := http.Get(Conf.HTTPScheme + Conf.Address + Conf.Port + "/play")
 	if err != nil {
 		panic(err)
 	}
@@ -45,8 +58,8 @@ func (c *client) Connect() {
 	}
 	b, _ := json.Marshal(cp)
 	// Connect
-	urlSpectate := url.URL{Scheme: server.WS_SCHEME, Host: server.ADDRESS, Path: "/watch"}
-	urlMove := url.URL{Scheme: server.WS_SCHEME, Host: server.ADDRESS, Path: "/game"}
+	urlSpectate := url.URL{Scheme: Conf.WsScheme, Host: Conf.Address + Conf.Port, Path: "/watch"}
+	urlMove := url.URL{Scheme: Conf.WsScheme, Host: Conf.Address + Conf.Port, Path: "/game"}
 	fmt.Println("Connecting to server..", urlSpectate.String())
 	spectateConn, _, err := websocket.Dial(context.Background(), urlSpectate.String(), nil)
 	if err != nil {

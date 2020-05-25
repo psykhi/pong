@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/kelseyhightower/envconfig"
 	"github.com/psykhi/pong/server"
 	"os"
 	"os/signal"
@@ -9,7 +10,9 @@ import (
 )
 
 func main() {
-	s := server.NewServer()
+	var conf server.Config
+	envconfig.MustProcess("", &conf)
+	s := server.NewServer(conf)
 	s.Start()
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
