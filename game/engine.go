@@ -26,7 +26,7 @@ func (e *Engine) Process(s State, p1in Inputs, p2in Inputs) State {
 		if time.Now().After(s.Restart) {
 			s.Paused = false
 			s.BallSpeed = Position{
-				X: 0.003,
+				X: 0.005,
 			}
 			s.BallSpeed = rotate(s.BallSpeed, rand.Float64()*math.Pi)
 		}
@@ -128,7 +128,7 @@ func (e *Engine) CollisionsWithPlayer(s *State, p Player) {
 		offsetAngle := p.OffsetRatio(b.P.Y) * math.Pi / 3
 		//fmt.Println("added angle", offsetAngle*(180/math.Pi))
 
-		speed := s.BallSpeed.L2() + 0.01*s.BallSpeed.L2()
+		speed := s.BallSpeed.L2() + 0.02*s.BallSpeed.L2()
 		s.BallSpeed.Y = 0
 		if s.BallSpeed.X < 0 {
 			s.BallSpeed.X = speed

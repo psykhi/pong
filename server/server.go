@@ -22,6 +22,11 @@ type Response struct {
 	PlayerID int
 }
 
+const PORT = ":8080"
+const ADDRESS = "pong-wasm.ew.r.appspot.com"
+const HTTP_SCHEME = "https://"
+const WS_SCHEME = "wss"
+
 func NewServer() *Server {
 	return &Server{
 		games:   sync.Map{},
@@ -108,7 +113,7 @@ func (s *Server) Start() {
 		g.(*GameInstance).addSpectator(c)
 	})
 
-	server := http.Server{Handler: cors.Default().Handler(sm), Addr: ":3010"}
+	server := http.Server{Handler: cors.Default().Handler(sm), Addr: PORT}
 
 	err := server.ListenAndServe()
 	if err != nil {

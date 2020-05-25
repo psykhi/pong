@@ -56,7 +56,7 @@ func (c *Canvas) drawWaiting() {
 func (c *Canvas) drawFinished() {
 	c.context().Set("font", "50px Arial")
 	c.context().Set("fillStyle", "black")
-	c.context().Call("fillText", "Opponent left. Refresh to look for game", 0.4*c.w/2, c.h/2)
+	c.context().Call("fillText", "Opponent left. Refresh to look for game", 0.5*c.w/2, c.h/2)
 }
 
 func (c *Canvas) context() js.Value {

@@ -19,10 +19,8 @@ type client struct {
 	StateCh   chan game.State
 }
 
-const ADDRESS = "192.168.1.226"
-
 func NewClient(ch chan game.State) *client {
-	resp, err := http.Get("http://" + ADDRESS + ":3010/play")
+	resp, err := http.Get("https://" + server.ADDRESS + "/play")
 	if err != nil {
 		panic(err)
 	}
@@ -47,8 +45,8 @@ func (c *client) Connect() {
 	}
 	b, _ := json.Marshal(cp)
 	// Connect
-	urlSpectate := url.URL{Scheme: "ws", Host: ADDRESS + ":3010", Path: "/watch"}
-	urlMove := url.URL{Scheme: "ws", Host: ADDRESS + ":3010", Path: "/game"}
+	urlSpectate := url.URL{Scheme: server.WS_SCHEME, Host: server.ADDRESS, Path: "/watch"}
+	urlMove := url.URL{Scheme: server.WS_SCHEME, Host: server.ADDRESS, Path: "/game"}
 	fmt.Println("Connecting to server..", urlSpectate.String())
 	spectateConn, _, err := websocket.Dial(context.Background(), urlSpectate.String(), nil)
 	if err != nil {
