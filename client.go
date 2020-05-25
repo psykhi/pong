@@ -18,6 +18,7 @@ type client struct {
 	playerID  int
 	StateCh   chan game.State
 }
+
 type Config struct {
 	Port       string `default:"8080"`
 	Address    string `default:"localhost"`
@@ -31,6 +32,13 @@ var Conf = Config{
 	HTTPScheme: "http://",
 	WsScheme:   "ws",
 }
+
+//var Conf = Config{
+//	Port:       "",
+//	Address:    "pong-wasm.herokuapp.com",
+//	HTTPScheme: "https://",
+//	WsScheme:   "wss",
+//}
 
 func NewClient(ch chan game.State) *client {
 	resp, err := http.Get(Conf.HTTPScheme + Conf.Address + Conf.Port + "/play")

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"container/list"
 	"fmt"
 	"github.com/psykhi/pong/game"
 	"github.com/psykhi/pong/render"
@@ -51,7 +52,7 @@ func main() {
 	js.Global().Get("document").Call("addEventListener", "keyup", keyUp)
 	render := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		c.Render(*s)
-		//fmt.Println("render")
+		//fmt.Println("render", time.Now().UnixNano())
 		return nil
 	})
 	defer render.Release()
@@ -62,27 +63,59 @@ func main() {
 	client.Connect()
 
 	go func() {
+		//lag := 2
+		tempSeverState := &game.State{}
+		*tempSeverState = *s
 		t := time.Tick(time.Second / game.TICKRATE)
+		tTick := time.Time{}
 		for {
 			select {
 			case <-t:
+				ts := time.Second / game.TICKRATE
+				if !tTick.IsZero() {
+					ts = time.Since(tTick)
+					tTick = time.Now()
+				}
 				if client.playerID == 0 {
-					*s = e.Process(*s, inputs, game.Inputs{})
+					*s = e.Process(*s, inputs, s.P2.Inputs, ts)
 				}
 				if client.playerID == 1 {
-					*s = e.Process(*s, game.Inputs{}, inputs)
+					*s = e.Process(*s, s.P1.Inputs, inputs, ts)
 				}
 				//fmt.Println(s.Ball.P.X)
 				//fmt.Println(s.Ball.P.Y)
 				//fmt.Println(s.Ball.P.Y)
 				//fmt.Println("local render")
 				js.Global().Call("requestAnimationFrame", render)
+				inputs.SequenceID++
 				client.sendInputs(inputs)
+				//case <-sCh:
 			case serverState := <-sCh:
-				//fmt.Println("Got server state")
-				//fmt.Println(serverState)
-				*s = serverState
-				js.Global().Call("requestAnimationFrame", render)
+				limit := 8
+				reject := false
+				if client.playerID == 0 {
+					if inputs.SequenceID-serverState.P1.Inputs.SequenceID > limit {
+						fmt.Println(serverState.P1.Inputs.SequenceID, s.P1.Inputs.SequenceID)
+						reject = true
+					} else {
+						//fmt.Println("ok")
+					}
+				}
+				if client.playerID == 1 {
+					if inputs.SequenceID-serverState.P2.Inputs.SequenceID > limit {
+						fmt.Println(serverState.P2.Inputs.SequenceID, s.P2.Inputs.SequenceID)
+						reject = true
+					} else {
+						//fmt.Println("ok")
+					}
+				}
+
+				if !reject {
+					//*s = *tempSeverState
+					//*tempSeverState = serverState
+					*s = serverState
+					js.Global().Call("requestAnimationFrame", render)
+				}
 
 			}
 		}
@@ -91,4 +124,13 @@ func main() {
 	js.Global().Call("requestAnimationFrame", render)
 
 	<-done
+}
+
+type ServerStates struct {
+	states list.List
+	size   int
+}
+
+func (ss *ServerStates) Add(s game.State) {
+	ss.states.PushBack(s)
 }

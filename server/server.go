@@ -3,25 +3,27 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/rs/cors"
 	"net/http"
 	"nhooyr.io/websocket"
 	"sync"
 )
-import "github.com/satori/go.uuid"
 
 type Server struct {
 	games    sync.Map
-	waiting  map[string]*GameInstance
+	waiting  **GameInstance
 	Mux      *http.ServeMux
 	WsServer *http.Server
 	config   Config
+	current  int
+	total    int
 }
 type Config struct {
-	Port       string `default:":8080"`
-	Address    string `default:"localhost"`
-	HTTPScheme string `envconfig:"http" default:"http"`
-	WsScheme   string `envconfig:"ws" default:"ws"`
+	Port int `default:"8080"`
+	//Address    string `default:"localhost"`
+	//HTTPScheme string `envconfig:"http" default:"http"`
+	//WsScheme   string `envconfig:"ws" default:"ws"`
 }
 
 type Response struct {
@@ -32,29 +34,32 @@ type Response struct {
 func NewServer(c Config) *Server {
 	return &Server{
 		games:   sync.Map{},
-		waiting: map[string]*GameInstance{},
+		waiting: nil,
 		config:  c,
 	}
 }
 
 func (s *Server) Start() {
+	fmt.Println("Server starting")
 	sm := http.NewServeMux()
+	endCh := make(chan string)
 
 	sm.HandleFunc("/play", func(writer http.ResponseWriter, request *http.Request) {
 		writer.Header().Set("content-type", "application/json")
-		if len(s.waiting) != 0 {
-			for id, g := range s.waiting {
-				s.SendResponse(writer, id, 1)
-				delete(s.waiting, id)
-				s.games.Store(id, g)
-				return
-			}
+		if s.waiting != nil {
+			g := *(s.waiting)
+			s.SendResponse(writer, g.id, 1)
+			s.games.Store(g.id, g)
+			s.total++
+			s.current++
+			s.waiting = nil
+			return
 		}
-		gi := NewGameInstance()
-		id := uuid.NewV4()
-		s.waiting[id.String()] = gi
-		s.games.Store(id.String(), gi)
-		s.SendResponse(writer, id.String(), 0)
+		gi := NewGameInstance(endCh)
+		s.waiting = &gi
+		s.games.Store(gi.id, gi)
+		fmt.Printf("Creating new game %s. %d games in progress. %d games total\n", gi.id, s.current, s.total)
+		s.SendResponse(writer, gi.id, 0)
 	})
 	options := &websocket.AcceptOptions{OriginPatterns: []string{"*"}}
 	sm.HandleFunc("/game", func(writer http.ResponseWriter, request *http.Request) {
@@ -116,7 +121,20 @@ func (s *Server) Start() {
 		g.(*GameInstance).addSpectator(c)
 	})
 
-	server := http.Server{Handler: cors.Default().Handler(sm), Addr: s.config.Port}
+	// Start game management thread
+	go func() {
+		for {
+			select {
+			case id := <-endCh:
+				s.games.Delete(id)
+				s.current--
+				fmt.Printf("Game %s ended. %d games in progress, %d games played\n", id, s.current, s.total)
+			}
+		}
+	}()
+	fmt.Printf("Starting server at port %v\n", s.config.Port)
+
+	server := http.Server{Handler: cors.Default().Handler(sm), Addr: fmt.Sprintf(":%d", s.config.Port)}
 
 	err := server.ListenAndServe()
 	if err != nil {

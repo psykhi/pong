@@ -6,6 +6,7 @@ type Player struct {
 	Width     float64
 	Score     int
 	Connected bool
+	Inputs    Inputs
 }
 
 func (p Player) Center() float64 {

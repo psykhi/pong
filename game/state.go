@@ -2,6 +2,7 @@ package game
 
 import (
 	"math"
+	"math/rand"
 	"time"
 )
 
@@ -34,6 +35,14 @@ func (s *State) Countdown() {
 	s.Reset()
 	s.Paused = true
 	s.Restart = time.Now().Add(2 * time.Second)
+
+	s.BallSpeed = Position{}
+
+	s.BallSpeed = Position{
+		X: BALL_MAX_SPEED,
+	}
+	s.BallSpeed = rotate(s.BallSpeed, rand.Float64()*math.Pi)
+
 }
 
 func (s *State) Reset() {

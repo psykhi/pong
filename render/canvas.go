@@ -26,7 +26,12 @@ func NewCanvas(id string, width, height float64) *Canvas {
 }
 
 func (c *Canvas) Render(s game.State) {
+	//fmt.Println(s.Ball.P)
 	c.context().Call("clearRect", 0, 0, c.w, c.h)
+	if s.Finished {
+		c.drawFinished()
+		return
+	}
 	if s.WaitingForPlayer {
 		c.drawWaiting()
 		return
@@ -36,10 +41,6 @@ func (c *Canvas) Render(s game.State) {
 	}
 	if s.Paused {
 		c.drawCountdown(s.Restart)
-	}
-	if s.Finished {
-		c.drawFinished()
-		return
 	}
 
 	c.drawLine(s.P1)
