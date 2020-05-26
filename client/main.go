@@ -12,7 +12,7 @@ import (
 var done = make(chan struct{})
 
 func main() {
-	fmt.Println("BLAB Start")
+	fmt.Println("Loaded WASM")
 	doc := js.Global().Get("document")
 	width := doc.Get("body").Get("clientWidth").Float()
 	height := doc.Get("body").Get("clientHeight").Float()
@@ -58,9 +58,17 @@ func main() {
 	defer render.Release()
 
 	sCh := make(chan game.State)
+	pingCh := make(chan time.Duration)
 
-	client := NewClient(sCh)
-	client.Connect()
+	client := NewClient(sCh, pingCh)
+	if client == nil {
+		s.Finished = true
+		fmt.Println("RIP")
+		js.Global().Call("requestAnimationFrame", render)
+		select {}
+	} else {
+		client.Connect()
+	}
 
 	go func() {
 		//lag := 2
@@ -68,6 +76,7 @@ func main() {
 		*tempSeverState = *s
 		t := time.Tick(time.Second / game.TICKRATE)
 		tTick := time.Time{}
+		ping := 0 * time.Millisecond
 		for {
 			select {
 			case <-t:
@@ -88,8 +97,11 @@ func main() {
 				//fmt.Println("local render")
 				js.Global().Call("requestAnimationFrame", render)
 				inputs.SequenceID++
-				client.sendInputs(inputs)
-				//case <-sCh:
+				client.sendInputs(inputs, ping)
+			//case <-sCh:
+			case p := <-pingCh:
+				//fmt.Println("got ping", ping)
+				ping = p
 			case serverState := <-sCh:
 				limit := 8
 				reject := false
@@ -110,7 +122,7 @@ func main() {
 					}
 				}
 
-				if !reject {
+				if !reject || serverState.Finished {
 					//*s = *tempSeverState
 					//*tempSeverState = serverState
 					*s = serverState

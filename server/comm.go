@@ -1,10 +1,16 @@
 package server
 
+import (
+	"github.com/psykhi/pong/game"
+	"time"
+)
+
 type ConnectPayload struct {
 	GameID   string
 	PlayerID int
 }
 
-type ActionPayload struct {
-	message string
+type InputPayload struct {
+	Inputs game.Inputs
+	Ping   time.Duration
 }

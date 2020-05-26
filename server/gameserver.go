@@ -24,7 +24,7 @@ type GameInstance struct {
 func NewGameInstance(endCh chan string) *GameInstance {
 	s := game.NewState()
 	s.WaitingForPlayer = true
-	return &GameInstance{
+	g := &GameInstance{
 		State:      s,
 		e:          &game.Engine{},
 		spectators: []*websocket.Conn{},
@@ -32,6 +32,8 @@ func NewGameInstance(endCh chan string) *GameInstance {
 		endCh:      endCh,
 		id:         uuid.NewV4().String(),
 	}
+	go g.loop()
+	return g
 }
 
 func (g *GameInstance) ConnectPlayer(playerID int, c *websocket.Conn) {
@@ -55,10 +57,6 @@ func (g *GameInstance) ConnectPlayer(playerID int, c *websocket.Conn) {
 	if g.p1Conn != nil && g.p2Conn != nil {
 		g.State.WaitingForPlayer = false
 		g.State.Countdown()
-		// Start the game engine
-		go g.loop()
-		// Start managing the render connections and send the start signal
-
 	}
 }
 
@@ -93,16 +91,27 @@ func (g *GameInstance) loop() {
 		case inUpdate := <-g.updates:
 			if inUpdate.disconnect {
 				g.State.Finished = true
+				for _, s := range g.spectators {
+					b, _ := json.Marshal(g.State)
+					err := s.Write(context.Background(), websocket.MessageText, b)
+					if err != nil {
+						panic(err)
+					}
+				}
+				g.p1Conn.Close(200, "game ended")
+				g.p1Conn.Close(200, "game ended")
 				g.endCh <- g.id
 				fmt.Println("Game finished")
 			}
 			if inUpdate.playerID == 0 {
 				p1In = inUpdate.inputs
 				g.State.P1.Inputs.SequenceID = p1In.SequenceID
+				g.State.P1.Ping = inUpdate.ping
 			}
 			if inUpdate.playerID == 1 {
 				p2In = inUpdate.inputs
 				g.State.P2.Inputs.SequenceID = p2In.SequenceID
+				g.State.P2.Ping = inUpdate.ping
 			}
 		}
 	}

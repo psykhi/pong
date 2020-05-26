@@ -38,6 +38,7 @@ func (c *Canvas) Render(s game.State) {
 	}
 	if s.P1.Connected && s.P2.Connected {
 		c.drawScore(s.P1.Score, s.P2.Score)
+		c.drawPing(s.P1.Ping, s.P2.Ping)
 	}
 	if s.Paused {
 		c.drawCountdown(s.Restart)
@@ -48,16 +49,32 @@ func (c *Canvas) Render(s game.State) {
 	c.drawBall(s.Ball)
 }
 
+func (c *Canvas) drawPing(p1 time.Duration, p2 time.Duration) {
+	c.context().Set("font", "20px Arial")
+	c.context().Set("fillStyle", "black")
+	c.context().Set("textAlign", "left")
+	c.context().Call("fillText", formatPing(p1), 0.01, 0.05*c.h)
+	c.context().Set("textAlign", "right")
+	c.context().Call("fillText", formatPing(p2), c.w, 0.05*c.h)
+}
+
+func formatPing(p time.Duration) string {
+	return fmt.Sprintf("ping: %dms", p.Milliseconds())
+}
+
 func (c *Canvas) drawWaiting() {
 	c.context().Set("font", "50px Arial")
 	c.context().Set("fillStyle", "black")
-	c.context().Call("fillText", "Waiting for opponent...", 0.4*c.w, c.h/2)
+	c.context().Set("textAlign", "center")
+	c.context().Call("fillText", "Waiting for opponent...", 0.5*c.w, c.h/2)
 }
 
 func (c *Canvas) drawFinished() {
-	c.context().Set("font", "50px Arial")
+	fmt.Println("finished")
+	c.context().Set("font", "30px Arial")
 	c.context().Set("fillStyle", "black")
-	c.context().Call("fillText", "Opponent left. Refresh to look for game", 0.5*c.w/2, c.h/2)
+	c.context().Set("textAlign", "center")
+	c.context().Call("fillText", "Opponent left or connection was lost. Refresh to look for game", 0.5*c.w, c.h/2)
 }
 
 func (c *Canvas) context() js.Value {
@@ -72,6 +89,8 @@ func (c *Canvas) context() js.Value {
 func (c *Canvas) drawScore(p1 int, p2 int) {
 	c.context().Set("font", "50px Arial")
 	c.context().Set("fillStyle", "black")
+	c.context().Set("textAlign", "center")
+	c.context().Set("textBaseline", "top")
 	c.context().Call("fillText", p1, c.w/4, 0.05*c.h)
 	c.context().Call("fillText", p2, 3*c.w/4, 0.05*c.h)
 }
@@ -94,5 +113,11 @@ func (c *Canvas) drawBall(b game.Ball) {
 func (c *Canvas) drawCountdown(restart time.Time) {
 	c.context().Set("font", "30px Arial")
 	c.context().Set("fillStyle", "black")
-	c.context().Call("fillText", fmt.Sprintf("%.1f", restart.Sub(time.Now()).Seconds())+"s", c.w/2, 0.05*c.h)
+	c.context().Set("textAlign", "center")
+	c.context().Set("textBaseline", "top")
+	delta := restart.Sub(time.Now()).Seconds()
+	if delta < 0 {
+		delta = 0
+	}
+	c.context().Call("fillText", fmt.Sprintf("%.0fs", delta), c.w/2, 0.05*c.h)
 }

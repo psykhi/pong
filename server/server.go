@@ -12,7 +12,7 @@ import (
 
 type Server struct {
 	games    sync.Map
-	waiting  **GameInstance
+	waiting  *GameInstance
 	Mux      *http.ServeMux
 	WsServer *http.Server
 	config   Config
@@ -21,9 +21,6 @@ type Server struct {
 }
 type Config struct {
 	Port int `default:"8080"`
-	//Address    string `default:"localhost"`
-	//HTTPScheme string `envconfig:"http" default:"http"`
-	//WsScheme   string `envconfig:"ws" default:"ws"`
 }
 
 type Response struct {
@@ -47,7 +44,7 @@ func (s *Server) Start() {
 	sm.HandleFunc("/play", func(writer http.ResponseWriter, request *http.Request) {
 		writer.Header().Set("content-type", "application/json")
 		if s.waiting != nil {
-			g := *(s.waiting)
+			g := s.waiting
 			s.SendResponse(writer, g.id, 1)
 			s.games.Store(g.id, g)
 			s.total++
@@ -56,69 +53,40 @@ func (s *Server) Start() {
 			return
 		}
 		gi := NewGameInstance(endCh)
-		s.waiting = &gi
+		s.waiting = gi
 		s.games.Store(gi.id, gi)
 		fmt.Printf("Creating new game %s. %d games in progress. %d games total\n", gi.id, s.current, s.total)
 		s.SendResponse(writer, gi.id, 0)
 	})
-	options := &websocket.AcceptOptions{OriginPatterns: []string{"*"}}
 	sm.HandleFunc("/game", func(writer http.ResponseWriter, request *http.Request) {
-		ctx := context.Background()
-		c, err := websocket.Accept(writer, request, options)
-		if err != nil {
-			panic(err)
-		}
-		cp := ConnectPayload{}
-		//expect a render connecting
-		_, b, err := c.Read(ctx)
-		if err != nil {
-			panic(err)
-		}
-		err = json.Unmarshal(b, &cp)
-		if err != nil {
-			panic(err)
-		}
-		// Find the game
-		g, ok := s.games.Load(cp.GameID)
-		if !ok {
-			b, _ := json.Marshal(g)
-			err = c.Write(ctx, websocket.MessageText, b)
-			if err != nil {
-				panic(err)
-			}
-			return
-
-		}
+		g, id, c := s.connect(writer, request)
 		// pass the connection to the game itself
-		g.(*GameInstance).ConnectPlayer(cp.PlayerID, c)
+		g.ConnectPlayer(id, c)
+	})
+
+	sm.HandleFunc("/ping", func(writer http.ResponseWriter, request *http.Request) {
+		_, _, c := s.connect(writer, request)
+		// pass the connection to the game itself
+		go func() {
+			for {
+				_, _, err := c.Read(context.Background())
+				if err != nil {
+					fmt.Println(err)
+					break
+				}
+				err = c.Write(context.Background(), websocket.MessageText, []byte(""))
+				if err != nil {
+					fmt.Println(err)
+					break
+				}
+			}
+			c.Close(200, "error")
+		}()
 	})
 
 	sm.HandleFunc("/watch", func(writer http.ResponseWriter, request *http.Request) {
-		ctx := context.Background()
-		c, err := websocket.Accept(writer, request, options)
-		if err != nil {
-			panic(err)
-		}
-		cp := ConnectPayload{}
-		//expect a render connecting
-		_, b, err := c.Read(ctx)
-		if err != nil {
-			panic(err)
-		}
-		err = json.Unmarshal(b, &cp)
-		if err != nil {
-			panic(err)
-		}
-		// Find the game
-		g, ok := s.games.Load(cp.GameID)
-		if !ok {
-			b, _ := json.Marshal(g)
-			err = c.Write(ctx, websocket.MessageText, b)
-			if err != nil {
-				panic(err)
-			}
-		}
-		g.(*GameInstance).addSpectator(c)
+		g, _, c := s.connect(writer, request)
+		g.addSpectator(c)
 	})
 
 	// Start game management thread
@@ -128,6 +96,9 @@ func (s *Server) Start() {
 			case id := <-endCh:
 				s.games.Delete(id)
 				s.current--
+				if s.waiting != nil && s.waiting.id == id {
+					s.waiting = nil
+				}
 				fmt.Printf("Game %s ended. %d games in progress, %d games played\n", id, s.current, s.total)
 			}
 		}
@@ -140,7 +111,35 @@ func (s *Server) Start() {
 	if err != nil {
 		panic(err)
 	}
-	// TODO handle end of game LOL
+}
+
+func (s *Server) connect(writer http.ResponseWriter, request *http.Request) (*GameInstance, int, *websocket.Conn) {
+	options := &websocket.AcceptOptions{OriginPatterns: []string{"*"}}
+	ctx := context.Background()
+	c, err := websocket.Accept(writer, request, options)
+	if err != nil {
+		panic(err)
+	}
+	cp := ConnectPayload{}
+	//expect a render connecting
+	_, b, err := c.Read(ctx)
+	if err != nil {
+		panic(err)
+	}
+	err = json.Unmarshal(b, &cp)
+	if err != nil {
+		panic(err)
+	}
+	// Find the game
+	g, ok := s.games.Load(cp.GameID)
+	if !ok {
+		b, _ := json.Marshal(g)
+		err = c.Write(ctx, websocket.MessageText, b)
+		if err != nil {
+			panic(err)
+		}
+	}
+	return g.(*GameInstance), cp.PlayerID, c
 }
 
 func (s *Server) Stop() {

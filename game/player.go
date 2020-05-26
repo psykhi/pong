@@ -1,5 +1,7 @@
 package game
 
+import "time"
+
 type Player struct {
 	Bottom    Position
 	Top       Position
@@ -7,6 +9,8 @@ type Player struct {
 	Score     int
 	Connected bool
 	Inputs    Inputs
+	Ping      time.Duration
+	LastPing  time.Time
 }
 
 func (p Player) Center() float64 {
