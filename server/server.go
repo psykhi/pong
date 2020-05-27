@@ -37,7 +37,6 @@ func NewServer(c Config) *Server {
 }
 
 func (s *Server) Start() {
-	fmt.Println("Server starting")
 	sm := http.NewServeMux()
 	endCh := make(chan string)
 
@@ -47,17 +46,19 @@ func (s *Server) Start() {
 			g := s.waiting
 			s.SendResponse(writer, g.id, 1)
 			s.games.Store(g.id, g)
-			s.total++
-			s.current++
+
 			s.waiting = nil
 			return
 		}
 		gi := NewGameInstance(endCh)
+		s.current++
+		s.total++
 		s.waiting = gi
 		s.games.Store(gi.id, gi)
 		fmt.Printf("Creating new game %s. %d games in progress. %d games total\n", gi.id, s.current, s.total)
 		s.SendResponse(writer, gi.id, 0)
 	})
+
 	sm.HandleFunc("/game", func(writer http.ResponseWriter, request *http.Request) {
 		g, id, c := s.connect(writer, request)
 		// pass the connection to the game itself
@@ -66,7 +67,8 @@ func (s *Server) Start() {
 
 	sm.HandleFunc("/ping", func(writer http.ResponseWriter, request *http.Request) {
 		_, _, c := s.connect(writer, request)
-		// pass the connection to the game itself
+
+		// Simple ping loop that doesn't affect the game
 		go func() {
 			for {
 				_, _, err := c.Read(context.Background())
@@ -103,7 +105,7 @@ func (s *Server) Start() {
 			}
 		}
 	}()
-	fmt.Printf("Starting server at port %v\n", s.config.Port)
+	fmt.Printf("Starting server on port %v\n", s.config.Port)
 
 	server := http.Server{Handler: cors.Default().Handler(sm), Addr: fmt.Sprintf(":%d", s.config.Port)}
 

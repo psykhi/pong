@@ -66,7 +66,7 @@ func (g *GameInstance) addSpectator(c *websocket.Conn) {
 
 func (g *GameInstance) loop() {
 	fmt.Printf("Starting game %s\n", g.id)
-	tc := time.Tick(time.Second / game.TICKRATE)
+	tc := time.Tick(time.Second / game.Tickrate)
 	tcupdate := time.Tick(time.Second / 64)
 	p1In := game.Inputs{}
 	p2In := game.Inputs{}
@@ -74,7 +74,7 @@ func (g *GameInstance) loop() {
 	for {
 		select {
 		case <-tc:
-			ts := time.Second / game.TICKRATE
+			ts := time.Second / game.Tickrate
 			if !tTick.IsZero() {
 				ts = time.Since(tTick)
 				tTick = time.Now()
@@ -98,8 +98,12 @@ func (g *GameInstance) loop() {
 						panic(err)
 					}
 				}
-				g.p1Conn.Close(200, "game ended")
-				g.p1Conn.Close(200, "game ended")
+				if g.p1Conn != nil {
+					g.p1Conn.Close(200, "game ended")
+				}
+				if g.p2Conn != nil {
+					g.p2Conn.Close(200, "game ended")
+				}
 				g.endCh <- g.id
 				fmt.Println("Game finished")
 			}

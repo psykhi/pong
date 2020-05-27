@@ -19,7 +19,6 @@ type InputUpdate struct {
 type PlayerConn struct {
 	id int
 	*websocket.Conn
-	//in       game.Inputs
 	ip       InputPayload
 	updateCh chan InputUpdate
 }
@@ -38,7 +37,6 @@ func (pc *PlayerConn) Start() {
 			panic(err)
 		}
 		pc.ip = ip
-		//fmt.Println("Got player inputs")
 		pc.updateCh <- InputUpdate{
 			playerID: pc.id,
 			inputs:   pc.ip.Inputs,

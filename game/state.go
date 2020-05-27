@@ -35,13 +35,14 @@ func (s *State) Countdown() {
 	s.Reset()
 	s.Paused = true
 	s.Restart = time.Now().Add(2 * time.Second)
-
 	s.BallSpeed = Position{}
-
 	s.BallSpeed = Position{
-		X: BALL_MAX_SPEED,
+		X: StartBallSpeed,
 	}
-	s.BallSpeed = rotate(s.BallSpeed, rand.Float64()*math.Pi)
+	if rand.Float64() > 0.5 {
+		s.BallSpeed.X = -s.BallSpeed.X
+	}
+	s.BallSpeed = rotate(s.BallSpeed, rand.Float64()*math.Pi/3)
 
 }
 

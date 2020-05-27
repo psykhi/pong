@@ -11,10 +11,10 @@ type Inputs struct {
 	SequenceID int
 }
 
-const TICKRATE = 128
-const BALL_MAX_SPEED = 0.5
-const PLAYER_MAX_SPEED = 0.8
-const BALL_SPEED_INCREASE = 0.02
+const Tickrate = 128
+const StartBallSpeed = 0.45
+const PlayerMaxSpeed = 0.8
+const BallSpeedIncrease = 0.023
 
 type Engine struct {
 }
@@ -42,13 +42,13 @@ func (e *Engine) processPlayerInput(p Player, in Inputs, interval time.Duration)
 	p.Inputs = in
 	dy := 0.0
 	if in.Up {
-		dy += PLAYER_MAX_SPEED * interval.Seconds()
+		dy += PlayerMaxSpeed * interval.Seconds()
 		if p.Top.Y+dy > 1 {
 			return p
 		}
 	}
 	if in.Down {
-		dy -= PLAYER_MAX_SPEED * interval.Seconds()
+		dy -= PlayerMaxSpeed * interval.Seconds()
 		if p.Bottom.Y+dy < 0 {
 			return p
 		}
@@ -56,9 +56,6 @@ func (e *Engine) processPlayerInput(p Player, in Inputs, interval time.Duration)
 
 	p.Top.Y += dy
 	p.Bottom.Y += dy
-
-	// Now verify
-	//fmt.Println(p.top.y)
 	return p
 }
 
@@ -122,18 +119,11 @@ func (e *Engine) CollisionsWithPlayer(s *State, p Player) {
 	dy := ty - b.P.Y
 
 	d := math.Sqrt(dx*dx + dy*dy)
-	//fmt.Println("dx dy", dx, dy)
-	//fmt.Println("DISTANCE", d)
-	//fmt.Println("BALL", b)
-	//fmt.Println("BOTOOM", p.top)
-	//fmt.Println("TOP", p.bottom)
+
 	if d < b.R {
-		//fmt.Println("COLLISION", b.p.y, p.bottom.y, p.offsetRatio(b.p.y))
-
 		offsetAngle := p.OffsetRatio(b.P.Y) * math.Pi / 3
-		//fmt.Println("added angle", offsetAngle*(180/math.Pi))
 
-		speed := s.BallSpeed.L2() + BALL_SPEED_INCREASE*s.BallSpeed.L2()
+		speed := s.BallSpeed.L2() + BallSpeedIncrease*s.BallSpeed.L2()
 		s.BallSpeed.Y = 0
 		if s.BallSpeed.X < 0 {
 			s.BallSpeed.X = speed
@@ -144,9 +134,6 @@ func (e *Engine) CollisionsWithPlayer(s *State, p Player) {
 			s.BallSpeed = rotate(s.BallSpeed, -offsetAngle)
 		}
 
-		//inAngle := math.Atan(s.BallSpeed.y / s.BallSpeed.x)
-		//fmt.Println("angle", inAngle*(180/math.Pi))
-		//s.BallSpeed.y = p.offsetRatio(b.p.y) * 0.005
 		if b.P.X+b.R > p.Bottom.X+p.Width/2 {
 			b.P.X = p.Bottom.X - p.Width/2 - b.R
 		}

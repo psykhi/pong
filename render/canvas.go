@@ -9,8 +9,8 @@ import (
 )
 
 type Canvas struct {
-	w  float64
-	h  float64
+	W  float64
+	H  float64
 	id string
 }
 
@@ -22,12 +22,25 @@ func NewCanvas(id string, width, height float64) *Canvas {
 
 	canvas.Set("height", height)
 	canvas.Set("width", width)
-	return &Canvas{w: width, h: height, id: id}
+	return &Canvas{W: width, H: height, id: id}
+}
+
+func (c *Canvas) Resize(w, h float64) {
+	canvas := js.
+		Global().
+		Get("document").
+		Call("getElementById", c.id)
+
+	canvas.Set("height", w)
+	canvas.Set("width", h)
+	c.W = w
+	c.H = h
+
 }
 
 func (c *Canvas) Render(s game.State) {
-	//fmt.Println(s.Ball.P)
-	c.context().Call("clearRect", 0, 0, c.w, c.h)
+	//fmt.Println(c.W, c.H)
+	c.context().Call("clearRect", 0, 0, c.W, c.H)
 	if s.Finished {
 		c.drawFinished()
 		return
@@ -51,11 +64,12 @@ func (c *Canvas) Render(s game.State) {
 
 func (c *Canvas) drawPing(p1 time.Duration, p2 time.Duration) {
 	c.context().Set("font", "20px Arial")
+	c.context().Set("textBaseline", "top")
 	c.context().Set("fillStyle", "black")
 	c.context().Set("textAlign", "left")
-	c.context().Call("fillText", formatPing(p1), 0.01, 0.05*c.h)
+	c.context().Call("fillText", formatPing(p1), 0.0, 0)
 	c.context().Set("textAlign", "right")
-	c.context().Call("fillText", formatPing(p2), c.w, 0.05*c.h)
+	c.context().Call("fillText", formatPing(p2), c.W, 0)
 }
 
 func formatPing(p time.Duration) string {
@@ -66,7 +80,7 @@ func (c *Canvas) drawWaiting() {
 	c.context().Set("font", "50px Arial")
 	c.context().Set("fillStyle", "black")
 	c.context().Set("textAlign", "center")
-	c.context().Call("fillText", "Waiting for opponent...", 0.5*c.w, c.h/2)
+	c.context().Call("fillText", "Waiting for opponent...", 0.5*c.W, c.H/2)
 }
 
 func (c *Canvas) drawFinished() {
@@ -74,7 +88,7 @@ func (c *Canvas) drawFinished() {
 	c.context().Set("font", "30px Arial")
 	c.context().Set("fillStyle", "black")
 	c.context().Set("textAlign", "center")
-	c.context().Call("fillText", "Opponent left or connection was lost. Refresh to look for game", 0.5*c.w, c.h/2)
+	c.context().Call("fillText", "Opponent left or connection was lost. Refresh to look for game", 0.5*c.W, c.H/2)
 }
 
 func (c *Canvas) context() js.Value {
@@ -91,21 +105,21 @@ func (c *Canvas) drawScore(p1 int, p2 int) {
 	c.context().Set("fillStyle", "black")
 	c.context().Set("textAlign", "center")
 	c.context().Set("textBaseline", "top")
-	c.context().Call("fillText", p1, c.w/4, 0.05*c.h)
-	c.context().Call("fillText", p2, 3*c.w/4, 0.05*c.h)
+	c.context().Call("fillText", p1, c.W/4, 0.05*c.H)
+	c.context().Call("fillText", p2, 3*c.W/4, 0.05*c.H)
 }
 
 func (c *Canvas) drawLine(l game.Player) {
-	c.context().Set("lineWidth", l.Width*c.w)
+	c.context().Set("lineWidth", l.Width*c.W)
 	c.context().Call("beginPath")
-	c.context().Call("moveTo", l.Top.X*c.w, l.Top.Y*c.h)
-	c.context().Call("lineTo", l.Bottom.X*c.w, l.Bottom.Y*c.h)
+	c.context().Call("moveTo", l.Top.X*c.W, l.Top.Y*c.H)
+	c.context().Call("lineTo", l.Bottom.X*c.W, l.Bottom.Y*c.H)
 	c.context().Call("stroke")
 }
 
 func (c *Canvas) drawBall(b game.Ball) {
 	c.context().Call("beginPath")
-	c.context().Call("arc", b.P.X*c.w, b.P.Y*c.h, b.R*c.w, 0, 3*math.Pi)
+	c.context().Call("arc", b.P.X*c.W, b.P.Y*c.H, b.R*c.W, 0, 3*math.Pi)
 	c.context().Set("fillStyle", "red")
 	c.context().Call("fill")
 }
@@ -119,5 +133,5 @@ func (c *Canvas) drawCountdown(restart time.Time) {
 	if delta < 0 {
 		delta = 0
 	}
-	c.context().Call("fillText", fmt.Sprintf("%.0fs", delta), c.w/2, 0.05*c.h)
+	c.context().Call("fillText", fmt.Sprintf("%.0fs", delta), c.W/2, 0.05*c.H)
 }

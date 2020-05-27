@@ -18,7 +18,7 @@ func main() {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
-		fmt.Println("\r- Ctrl+C pressed in Terminal")
+		fmt.Println("Terminating sever...")
 		s.Stop()
 		os.Exit(0)
 	}()
