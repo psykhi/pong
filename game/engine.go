@@ -86,7 +86,7 @@ func (e *Engine) processBall(s *State, interval time.Duration) {
 
 	s.Ball = b
 	for _, p := range s.Players {
-		e.CollisionsWithPlayer(s, p)
+		e.collisionsWithPlayer(s, p)
 	}
 
 	// end?
@@ -102,7 +102,7 @@ func (e *Engine) processBall(s *State, interval time.Duration) {
 	}
 }
 
-func (e *Engine) CollisionsWithPlayer(s *State, p Player) {
+func (e *Engine) collisionsWithPlayer(s *State, p Player) {
 	b := s.Ball
 	tx := b.P.X
 	ty := b.P.Y

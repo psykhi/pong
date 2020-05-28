@@ -15,13 +15,11 @@ const MaxPlayerCount = 2
 type GameInstance struct {
 	*game.State
 	playerConnections []*PlayerConn
-	//p1Conn            *PlayerConn
-	//p2Conn            *PlayerConn
-	e          *game.Engine
-	spectators []*websocket.Conn
-	updates    chan InputUpdate
-	endCh      chan string
-	id         string
+	e                 *game.Engine
+	spectators        []*websocket.Conn
+	updates           chan InputUpdate
+	endCh             chan string
+	id                string
 }
 
 func NewGameInstance(endCh chan string) *GameInstance {
@@ -63,23 +61,6 @@ func (g *GameInstance) ConnectPlayer(playerID int, c *websocket.Conn) {
 		g.State.WaitingForPlayer = false
 		g.State.Countdown()
 	}
-	//
-	//if playerID == 0 {
-	//	fmt.Printf("Player 1 connected on game %s\n", g.id)
-	//	g.p1Conn = pc
-	//	g.State.P1.Connected = true
-	//	go g.p1Conn.Start()
-	//} else if playerID == 1 {
-	//	fmt.Printf("Player 2 connected on game %s\n", g.id)
-	//	g.p2Conn = pc
-	//	g.State.P2.Connected = true
-	//	go g.p2Conn.Start()
-	//}
-	//// Start the game if players are there
-	//if g.p1Conn != nil && g.p2Conn != nil {
-	//	g.State.WaitingForPlayer = false
-	//	g.State.Countdown()
-	//}
 }
 
 func (g *GameInstance) addSpectator(c *websocket.Conn) {

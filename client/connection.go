@@ -129,7 +129,7 @@ func (c *connection) Connect() {
 				return
 			}
 			err = json.Unmarshal(b, &s)
-			//fmt.Println("got state from server", s)
+			//fmt.Println("got state from server", state)
 			if err != nil {
 				panic(err)
 			}

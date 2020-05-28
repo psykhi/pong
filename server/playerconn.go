@@ -27,7 +27,6 @@ func (pc *PlayerConn) Start() {
 	for {
 		_, b, err := pc.Read(context.Background())
 		if err != nil {
-			// player disconnected!
 			pc.OnDisconnect()
 			return
 		}

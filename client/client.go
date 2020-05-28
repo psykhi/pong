@@ -16,9 +16,9 @@ type touch struct {
 }
 
 type client struct {
-	e            *game.Engine
-	c            *render.Canvas
-	s            *game.State
+	engine       *game.Engine
+	canvas       *render.Canvas
+	state        *game.State
 	inputs       *game.Inputs
 	doc          js.Value
 	funcs        []js.Func
@@ -27,7 +27,7 @@ type client struct {
 	height       float64
 	conn         *connection
 	touch        touch
-	sCh          chan game.State
+	stateCh      chan game.State
 	pingCh       chan time.Duration
 	inputManager *InputManager
 }
@@ -43,13 +43,13 @@ func NewClient() *client {
 	s.WaitingForPlayer = true
 	inputs := &game.Inputs{}
 	cl := &client{
-		e:            e,
-		c:            c,
-		s:            s,
+		engine:       e,
+		canvas:       c,
+		state:        s,
 		inputs:       inputs,
 		doc:          doc,
 		funcs:        []js.Func{},
-		sCh:          make(chan game.State),
+		stateCh:      make(chan game.State),
 		pingCh:       make(chan time.Duration),
 		inputManager: NewInputManager(100),
 	}
@@ -57,9 +57,9 @@ func NewClient() *client {
 	w, h := cl.Dimensions()
 	cl.width = w
 	cl.height = h
-	conn := NewClientConnection(cl.sCh, cl.pingCh)
+	conn := NewClientConnection(cl.stateCh, cl.pingCh)
 	if conn == nil {
-		cl.s.Finished = true
+		cl.state.Finished = true
 		js.Global().Call("requestAnimationFrame", cl.render)
 		select {}
 	} else {
@@ -68,7 +68,7 @@ func NewClient() *client {
 	cl.conn = conn
 
 	doRender := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		cl.c.Render(*cl.s)
+		cl.canvas.Render(*cl.state)
 		return nil
 	})
 	cl.render = doRender
@@ -148,7 +148,7 @@ func (cl *client) getInputs() *game.Inputs {
 	if !cl.touch.touch {
 		return cl.inputs
 	}
-	p := cl.s.Players[cl.conn.playerID]
+	p := cl.state.Players[cl.conn.playerID]
 
 	if math.Abs(cl.touch.y-p.Center()) < 0.01 {
 		cl.inputs.Down = false
@@ -173,7 +173,7 @@ func (cl *client) Dimensions() (float64, float64) {
 func (cl *client) registerResize() {
 	onResize := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		w, h := cl.Dimensions()
-		cl.c.Resize(w, h)
+		cl.canvas.Resize(w, h)
 		fmt.Println(w, h)
 		cl.width = w
 		cl.height = h
@@ -193,13 +193,16 @@ func (cl *client) replay(s game.State, from int) game.State {
 			// give up, we're replaying from too far
 			return s
 		}
-		inputs := cl.s.Inputs()
+		inputs := cl.state.Inputs()
 		inputs[cl.conn.playerID] = in
-		state = cl.e.Process(state, inputs, delta)
+		state = cl.engine.Process(state, inputs, delta)
 	}
 	return state
 }
 
+func (cl *client) hidden() bool {
+	return js.Global().Get("document").Get("hidden").Bool()
+}
 func (cl *client) Start() {
 	go func() {
 		gameTick := time.Tick(time.Second / game.Tickrate)
@@ -209,32 +212,39 @@ func (cl *client) Start() {
 		for {
 			select {
 			case <-gameTick:
+				if cl.hidden() {
+					break
+				}
 				tSinceLastFrame := time.Second / game.Tickrate
 				if !frameTs.IsZero() {
 					tSinceLastFrame = time.Since(frameTs)
 					frameTs = time.Now()
 				}
 				// Process movement based on the local inputs, not what the server sees
-				inputs := cl.s.Inputs()
+				inputs := cl.state.Inputs()
 				inputs[cl.conn.playerID] = *cl.getInputs()
 
-				*cl.s = cl.e.Process(*cl.s, inputs, tSinceLastFrame)
+				*cl.state = cl.engine.Process(*cl.state, inputs, tSinceLastFrame)
 
 				js.Global().Call("requestAnimationFrame", cl.render)
 
-				in := cl.getInputs()
-				cl.inputManager.Set(*in)
-				cl.conn.sendInputs(in, ping)
-				in.SequenceID++
+				playerInput := cl.getInputs()
+				cl.inputManager.Set(*playerInput)
+				cl.conn.sendInputs(playerInput, ping)
+				playerInput.SequenceID++
 			case p := <-cl.pingCh:
 				ping = p
-			case serverState := <-cl.sCh:
+			case serverState := <-cl.stateCh:
+				if cl.hidden() {
+					break
+				}
 				//Reconcile server input with local state
-				*cl.s = cl.replay(serverState, serverState.Players[cl.conn.playerID].Inputs.SequenceID)
+				*cl.state = cl.replay(serverState, serverState.Players[cl.conn.playerID].Inputs.SequenceID)
 				js.Global().Call("requestAnimationFrame", cl.render)
 			}
 		}
 	}()
 
+	// Trigger first rendering
 	js.Global().Call("requestAnimationFrame", cl.render)
 }

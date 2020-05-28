@@ -21,10 +21,8 @@ type Ball struct {
 }
 
 type State struct {
-	Ball    Ball
-	Players []Player
-	//P1               Player
-	//P2               Player
+	Ball             Ball
+	Players          []Player
 	BallSpeed        Position
 	Finished         bool
 	WaitingForPlayer bool

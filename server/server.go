@@ -72,12 +72,10 @@ func (s *Server) Start() {
 			for {
 				_, _, err := c.Read(context.Background())
 				if err != nil {
-					fmt.Println(err)
 					break
 				}
 				err = c.Write(context.Background(), websocket.MessageText, []byte(""))
 				if err != nil {
-					fmt.Println(err)
 					break
 				}
 			}
