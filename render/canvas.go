@@ -84,7 +84,6 @@ func (c *Canvas) drawWaiting() {
 }
 
 func (c *Canvas) drawFinished() {
-	fmt.Println("finished")
 	c.context().Set("font", "30px Arial")
 	c.context().Set("fillStyle", "black")
 	c.context().Set("textAlign", "center")

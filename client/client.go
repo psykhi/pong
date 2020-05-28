@@ -16,19 +16,20 @@ type touch struct {
 }
 
 type client struct {
-	e      *game.Engine
-	c      *render.Canvas
-	s      *game.State
-	inputs *game.Inputs
-	doc    js.Value
-	funcs  []js.Func
-	render js.Func
-	width  float64
-	height float64
-	conn   *connection
-	touch  touch
-	sCh    chan game.State
-	pingCh chan time.Duration
+	e            *game.Engine
+	c            *render.Canvas
+	s            *game.State
+	inputs       *game.Inputs
+	doc          js.Value
+	funcs        []js.Func
+	render       js.Func
+	width        float64
+	height       float64
+	conn         *connection
+	touch        touch
+	sCh          chan game.State
+	pingCh       chan time.Duration
+	inputManager *InputManager
 }
 
 func NewClient() *client {
@@ -42,14 +43,15 @@ func NewClient() *client {
 	s.WaitingForPlayer = true
 	inputs := &game.Inputs{}
 	cl := &client{
-		e:      e,
-		c:      c,
-		s:      s,
-		inputs: inputs,
-		doc:    doc,
-		funcs:  []js.Func{},
-		sCh:    make(chan game.State),
-		pingCh: make(chan time.Duration),
+		e:            e,
+		c:            c,
+		s:            s,
+		inputs:       inputs,
+		doc:          doc,
+		funcs:        []js.Func{},
+		sCh:          make(chan game.State),
+		pingCh:       make(chan time.Duration),
+		inputManager: NewInputManager(100),
 	}
 
 	w, h := cl.Dimensions()
@@ -184,13 +186,31 @@ func (cl *client) registerResize() {
 	cl.funcs = append(cl.funcs, onResize)
 }
 
-func (cl *client) Start() {
+func (cl *client) replay(s game.State, from int) game.State {
+	state := s
+	delta := time.Second / game.Tickrate
+	for sid := from; sid < cl.inputs.SequenceID; sid++ {
+		in, err := cl.inputManager.Get(sid)
+		if err != nil {
+			// give up, we're replaying from too far
+			return s
+		}
+		if cl.conn.playerID == 0 {
+			state = cl.e.Process(state, in, cl.s.P2.Inputs, delta)
+		}
+		if cl.conn.playerID == 1 {
+			state = cl.e.Process(state, cl.s.P1.Inputs, in, delta)
+		}
+	}
+	return state
+}
 
+func (cl *client) Start() {
 	go func() {
 		gameTick := time.Tick(time.Second / game.Tickrate)
 		frameTs := time.Time{}
 		ping := 0 * time.Millisecond
-		tsLastValidState := time.Now().Add(24 * time.Hour)
+		//tsLastValidState := time.Now().Add(24 * time.Hour)
 		for {
 			select {
 			case <-gameTick:
@@ -208,35 +228,21 @@ func (cl *client) Start() {
 				}
 				js.Global().Call("requestAnimationFrame", cl.render)
 
-				cl.conn.sendInputs(cl.getInputs(), ping)
+				in := cl.getInputs()
+				cl.inputManager.Set(*in)
+				cl.conn.sendInputs(in, ping)
+				in.SequenceID++
 			case p := <-cl.pingCh:
 				ping = p
 			case serverState := <-cl.sCh:
-				// We reject input from the server that we deem too old. Probably not very smart if the ping is simply too high.
-				// Then we'll never "accept" anything
-				limit := 10
-				reject := false
+				//Reconcile server input with local state
 				if cl.conn.playerID == 0 {
-					if cl.inputs.SequenceID-serverState.P1.Inputs.SequenceID > limit {
-						fmt.Println(serverState.P1.Inputs.SequenceID, cl.s.P1.Inputs.SequenceID)
-						reject = true
-					}
+					*cl.s = cl.replay(serverState, serverState.P1.Inputs.SequenceID)
 				}
 				if cl.conn.playerID == 1 {
-					if cl.inputs.SequenceID-serverState.P2.Inputs.SequenceID > limit {
-						fmt.Println(serverState.P2.Inputs.SequenceID, cl.s.P2.Inputs.SequenceID)
-						reject = true
-					}
+					*cl.s = cl.replay(serverState, serverState.P2.Inputs.SequenceID)
 				}
-				// Check if we've not received an up to date state in more than one second
-				if reject && time.Since(tsLastValidState) > time.Second {
-					cl.s.Finished = true
-					js.Global().Call("requestAnimationFrame", cl.render)
-				} else if !reject || serverState.Finished {
-					tsLastValidState = time.Now()
-					*cl.s = serverState
-					js.Global().Call("requestAnimationFrame", cl.render)
-				}
+				js.Global().Call("requestAnimationFrame", cl.render)
 			}
 		}
 	}()

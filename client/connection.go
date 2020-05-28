@@ -141,7 +141,6 @@ func (c *connection) Connect() {
 }
 
 func (c *connection) sendInputs(in *game.Inputs, ping time.Duration) {
-	in.SequenceID++
 	b, _ := json.Marshal(server.InputPayload{
 		Inputs: *in,
 		Ping:   ping,

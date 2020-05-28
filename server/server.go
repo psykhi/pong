@@ -46,7 +46,6 @@ func (s *Server) Start() {
 			g := s.waiting
 			s.SendResponse(writer, g.id, 1)
 			s.games.Store(g.id, g)
-
 			s.waiting = nil
 			return
 		}
@@ -123,7 +122,7 @@ func (s *Server) connect(writer http.ResponseWriter, request *http.Request) (*Ga
 		panic(err)
 	}
 	cp := ConnectPayload{}
-	//expect a render connecting
+	//expect a client connecting
 	_, b, err := c.Read(ctx)
 	if err != nil {
 		panic(err)
