@@ -21,14 +21,23 @@ type Ball struct {
 }
 
 type State struct {
-	Ball             Ball
-	P1               Player
-	P2               Player
+	Ball    Ball
+	Players []Player
+	//P1               Player
+	//P2               Player
 	BallSpeed        Position
 	Finished         bool
 	WaitingForPlayer bool
 	Paused           bool
 	Restart          time.Time
+}
+
+func (s *State) Inputs() []Inputs {
+	ret := make([]Inputs, 0)
+	for _, p := range s.Players {
+		ret = append(ret, p.Inputs)
+	}
+	return ret
 }
 
 func (s *State) Countdown() {
@@ -47,17 +56,17 @@ func (s *State) Countdown() {
 }
 
 func (s *State) Reset() {
-	s.P1.Bottom.X = 0.1
-	s.P1.Bottom.Y = 0.4
-	s.P1.Top.X = 0.1
-	s.P1.Top.Y = 0.6
-	s.P1.Width = 0.01
+	s.Players[0].Bottom.X = 0.1
+	s.Players[0].Bottom.Y = 0.4
+	s.Players[0].Top.X = 0.1
+	s.Players[0].Top.Y = 0.6
+	s.Players[0].Width = 0.01
 
-	s.P2.Bottom.X = 0.9
-	s.P2.Bottom.Y = 0.4
-	s.P2.Top.X = 0.9
-	s.P2.Top.Y = 0.6
-	s.P2.Width = 0.01
+	s.Players[1].Bottom.X = 0.9
+	s.Players[1].Bottom.Y = 0.4
+	s.Players[1].Top.X = 0.9
+	s.Players[1].Top.Y = 0.6
+	s.Players[1].Width = 0.01
 
 	ball := Ball{
 		P: Position{
@@ -72,7 +81,9 @@ func (s *State) Reset() {
 }
 
 func NewState() *State {
-	s := State{}
+	s := State{
+		Players: make([]Player, 2),
+	}
 	s.Reset()
 	return &s
 }

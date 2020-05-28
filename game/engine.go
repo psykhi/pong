@@ -19,9 +19,10 @@ const BallSpeedIncrease = 0.023
 type Engine struct {
 }
 
-func (e *Engine) Process(s State, p1in Inputs, p2in Inputs, interval time.Duration) State {
-	s.P1.Inputs = p1in
-	s.P2.Inputs = p2in
+func (e *Engine) Process(s State, inputs []Inputs, interval time.Duration) State {
+	for i, in := range inputs {
+		s.Players[i].Inputs = in
+	}
 	if s.Finished {
 		return s
 	}
@@ -31,9 +32,10 @@ func (e *Engine) Process(s State, p1in Inputs, p2in Inputs, interval time.Durati
 			s.Paused = false
 		}
 	}
+	for i, in := range inputs {
+		s.Players[i] = e.processPlayerInput(s.Players[i], in, interval)
+	}
 
-	s.P1 = e.processPlayerInput(s.P1, p1in, interval)
-	s.P2 = e.processPlayerInput(s.P2, p2in, interval)
 	e.processBall(&s, interval)
 	return s
 }
@@ -83,18 +85,18 @@ func (e *Engine) processBall(s *State, interval time.Duration) {
 	// Player collisions?
 
 	s.Ball = b
-	e.CollisionsWithPlayer(s, s.P1)
-	e.CollisionsWithPlayer(s, s.P2)
+	for _, p := range s.Players {
+		e.CollisionsWithPlayer(s, p)
+	}
 
 	// end?
-
 	if s.Ball.P.X > 1 {
-		s.P1.Score++
+		s.Players[0].Score++
 		s.Countdown()
 	}
 
 	if s.Ball.P.X < 0 {
-		s.P2.Score++
+		s.Players[1].Score++
 		s.Countdown()
 
 	}

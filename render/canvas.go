@@ -49,16 +49,16 @@ func (c *Canvas) Render(s game.State) {
 		c.drawWaiting()
 		return
 	}
-	if s.P1.Connected && s.P2.Connected {
-		c.drawScore(s.P1.Score, s.P2.Score)
-		c.drawPing(s.P1.Ping, s.P2.Ping)
+	if s.Players[0].Connected && s.Players[1].Connected {
+		c.drawScore(s.Players[0].Score, s.Players[1].Score)
+		c.drawPing(s.Players[0].Ping, s.Players[1].Ping)
 	}
 	if s.Paused {
 		c.drawCountdown(s.Restart)
 	}
 
-	c.drawLine(s.P1)
-	c.drawLine(s.P2)
+	c.drawLine(s.Players[0])
+	c.drawLine(s.Players[1])
 	c.drawBall(s.Ball)
 }
 

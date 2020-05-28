@@ -10,10 +10,13 @@ import (
 	"time"
 )
 
+const MaxPlayerCount = 2
+
 type GameInstance struct {
 	*game.State
-	p1Conn     *PlayerConn
-	p2Conn     *PlayerConn
+	playerConnections []*PlayerConn
+	//p1Conn            *PlayerConn
+	//p2Conn            *PlayerConn
 	e          *game.Engine
 	spectators []*websocket.Conn
 	updates    chan InputUpdate
@@ -25,15 +28,25 @@ func NewGameInstance(endCh chan string) *GameInstance {
 	s := game.NewState()
 	s.WaitingForPlayer = true
 	g := &GameInstance{
-		State:      s,
-		e:          &game.Engine{},
-		spectators: []*websocket.Conn{},
-		updates:    make(chan InputUpdate, 2),
-		endCh:      endCh,
-		id:         uuid.NewV4().String(),
+		playerConnections: make([]*PlayerConn, MaxPlayerCount),
+		State:             s,
+		e:                 &game.Engine{},
+		spectators:        []*websocket.Conn{},
+		updates:           make(chan InputUpdate, MaxPlayerCount),
+		endCh:             endCh,
+		id:                uuid.NewV4().String(),
 	}
 	go g.loop()
 	return g
+}
+
+func (g *GameInstance) AllConnected() bool {
+	for _, pc := range g.playerConnections {
+		if pc == nil {
+			return false
+		}
+	}
+	return true
 }
 
 func (g *GameInstance) ConnectPlayer(playerID int, c *websocket.Conn) {
@@ -42,34 +55,51 @@ func (g *GameInstance) ConnectPlayer(playerID int, c *websocket.Conn) {
 		Conn:     c,
 		updateCh: g.updates,
 	}
-	if playerID == 0 {
-		fmt.Printf("Player 1 connected on game %s\n", g.id)
-		g.p1Conn = pc
-		g.State.P1.Connected = true
-		go g.p1Conn.Start()
-	} else if playerID == 1 {
-		fmt.Printf("Player 2 connected on game %s\n", g.id)
-		g.p2Conn = pc
-		g.State.P2.Connected = true
-		go g.p2Conn.Start()
-	}
-	// Start the game if players are there
-	if g.p1Conn != nil && g.p2Conn != nil {
+	g.playerConnections[playerID] = pc
+	g.State.Players[playerID].Connected = true
+	go g.playerConnections[playerID].Start()
+
+	if g.AllConnected() {
 		g.State.WaitingForPlayer = false
 		g.State.Countdown()
 	}
+	//
+	//if playerID == 0 {
+	//	fmt.Printf("Player 1 connected on game %s\n", g.id)
+	//	g.p1Conn = pc
+	//	g.State.P1.Connected = true
+	//	go g.p1Conn.Start()
+	//} else if playerID == 1 {
+	//	fmt.Printf("Player 2 connected on game %s\n", g.id)
+	//	g.p2Conn = pc
+	//	g.State.P2.Connected = true
+	//	go g.p2Conn.Start()
+	//}
+	//// Start the game if players are there
+	//if g.p1Conn != nil && g.p2Conn != nil {
+	//	g.State.WaitingForPlayer = false
+	//	g.State.Countdown()
+	//}
 }
 
 func (g *GameInstance) addSpectator(c *websocket.Conn) {
 	g.spectators = append(g.spectators, c)
 }
 
+func (g *GameInstance) closeConnections() {
+	for _, c := range g.playerConnections {
+		if c != nil {
+			c.Close(200, "Game ended")
+		}
+	}
+}
+
 func (g *GameInstance) loop() {
 	fmt.Printf("Starting game %s\n", g.id)
 	tc := time.Tick(time.Second / game.Tickrate)
 	tcupdate := time.Tick(time.Second / 64)
-	p1In := game.Inputs{}
-	p2In := game.Inputs{}
+	playerInputs := make([]game.Inputs, MaxPlayerCount)
+
 	tTick := time.Time{}
 	for {
 		select {
@@ -79,7 +109,7 @@ func (g *GameInstance) loop() {
 				ts = time.Since(tTick)
 				tTick = time.Now()
 			}
-			*g.State = g.e.Process(*g.State, p1In, p2In, ts)
+			*g.State = g.e.Process(*g.State, playerInputs, ts)
 		case <-tcupdate:
 			for _, s := range g.spectators {
 				b, _ := json.Marshal(g.State)
@@ -98,25 +128,14 @@ func (g *GameInstance) loop() {
 						panic(err)
 					}
 				}
-				if g.p1Conn != nil {
-					g.p1Conn.Close(200, "game ended")
-				}
-				if g.p2Conn != nil {
-					g.p2Conn.Close(200, "game ended")
-				}
+				g.closeConnections()
 				g.endCh <- g.id
 				fmt.Println("Game finished")
 			}
-			if inUpdate.playerID == 0 {
-				p1In = inUpdate.inputs
-				g.State.P1.Inputs.SequenceID = p1In.SequenceID
-				g.State.P1.Ping = inUpdate.ping
-			}
-			if inUpdate.playerID == 1 {
-				p2In = inUpdate.inputs
-				g.State.P2.Inputs.SequenceID = p2In.SequenceID
-				g.State.P2.Ping = inUpdate.ping
-			}
+			pid := inUpdate.playerID
+			playerInputs[pid] = inUpdate.inputs
+			g.State.Players[pid].Inputs.SequenceID = playerInputs[pid].SequenceID
+			g.State.Players[pid].Ping = inUpdate.ping
 		}
 	}
 }

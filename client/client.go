@@ -148,10 +148,8 @@ func (cl *client) getInputs() *game.Inputs {
 	if !cl.touch.touch {
 		return cl.inputs
 	}
-	p := cl.s.P1
-	if cl.conn.playerID == 1 {
-		p = cl.s.P2
-	}
+	p := cl.s.Players[cl.conn.playerID]
+
 	if math.Abs(cl.touch.y-p.Center()) < 0.01 {
 		cl.inputs.Down = false
 		cl.inputs.Up = false
@@ -195,12 +193,9 @@ func (cl *client) replay(s game.State, from int) game.State {
 			// give up, we're replaying from too far
 			return s
 		}
-		if cl.conn.playerID == 0 {
-			state = cl.e.Process(state, in, cl.s.P2.Inputs, delta)
-		}
-		if cl.conn.playerID == 1 {
-			state = cl.e.Process(state, cl.s.P1.Inputs, in, delta)
-		}
+		inputs := cl.s.Inputs()
+		inputs[cl.conn.playerID] = in
+		state = cl.e.Process(state, inputs, delta)
 	}
 	return state
 }
@@ -220,12 +215,11 @@ func (cl *client) Start() {
 					frameTs = time.Now()
 				}
 				// Process movement based on the local inputs, not what the server sees
-				if cl.conn.playerID == 0 {
-					*cl.s = cl.e.Process(*cl.s, *cl.getInputs(), cl.s.P2.Inputs, tSinceLastFrame)
-				}
-				if cl.conn.playerID == 1 {
-					*cl.s = cl.e.Process(*cl.s, cl.s.P1.Inputs, *cl.getInputs(), tSinceLastFrame)
-				}
+				inputs := cl.s.Inputs()
+				inputs[cl.conn.playerID] = *cl.getInputs()
+
+				*cl.s = cl.e.Process(*cl.s, inputs, tSinceLastFrame)
+
 				js.Global().Call("requestAnimationFrame", cl.render)
 
 				in := cl.getInputs()
@@ -236,12 +230,7 @@ func (cl *client) Start() {
 				ping = p
 			case serverState := <-cl.sCh:
 				//Reconcile server input with local state
-				if cl.conn.playerID == 0 {
-					*cl.s = cl.replay(serverState, serverState.P1.Inputs.SequenceID)
-				}
-				if cl.conn.playerID == 1 {
-					*cl.s = cl.replay(serverState, serverState.P2.Inputs.SequenceID)
-				}
+				*cl.s = cl.replay(serverState, serverState.Players[cl.conn.playerID].Inputs.SequenceID)
 				js.Global().Call("requestAnimationFrame", cl.render)
 			}
 		}

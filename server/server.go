@@ -19,6 +19,7 @@ type Server struct {
 	current  int
 	total    int
 }
+
 type Config struct {
 	Port int `default:"8080"`
 }
@@ -66,7 +67,6 @@ func (s *Server) Start() {
 
 	sm.HandleFunc("/ping", func(writer http.ResponseWriter, request *http.Request) {
 		_, _, c := s.connect(writer, request)
-
 		// Simple ping loop that doesn't affect the game
 		go func() {
 			for {
