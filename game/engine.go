@@ -26,7 +26,6 @@ func (e *Engine) Process(s State, inputs []Inputs, interval time.Duration) State
 	if s.Finished {
 		return s
 	}
-
 	if s.Paused {
 		if time.Now().After(s.Restart) {
 			s.Paused = false

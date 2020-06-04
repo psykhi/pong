@@ -27,7 +27,8 @@ func (pc *PlayerConn) Start() {
 	for {
 		_, b, err := pc.Read(context.Background())
 		if err != nil {
-			pc.OnDisconnect()
+			pc.OnDisconnect(err)
+			pc.Close(400, err.Error())
 			return
 		}
 		ip := InputPayload{}
@@ -44,8 +45,8 @@ func (pc *PlayerConn) Start() {
 	}
 }
 
-func (pc *PlayerConn) OnDisconnect() {
-	fmt.Printf("Player disconnected from game\n")
+func (pc *PlayerConn) OnDisconnect(err error) {
+	fmt.Printf("Player disconnected from game: %s\n", err)
 	pc.updateCh <- InputUpdate{
 		playerID:   pc.id,
 		inputs:     pc.ip.Inputs,

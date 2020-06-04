@@ -13,12 +13,13 @@ import (
 )
 
 type connection struct {
-	updateConn *websocket.Conn
-	spectate   *websocket.Conn
-	gameID     string
-	playerID   int
-	StateCh    chan game.State
-	PingCh     chan time.Duration
+	updateConn   *websocket.Conn
+	spectateConn *websocket.Conn
+	pingConn     *websocket.Conn
+	gameID       string
+	playerID     int
+	StateCh      chan game.State
+	PingCh       chan time.Duration
 }
 
 type Config struct {
@@ -40,13 +41,19 @@ func NewClientConnection(ch chan game.State, pingCh chan time.Duration) *connect
 		panic(err)
 	}
 	return &connection{
-		updateConn: nil,
-		spectate:   nil,
-		gameID:     r.GameID,
-		playerID:   r.PlayerID,
-		StateCh:    ch,
-		PingCh:     pingCh,
+		updateConn:   nil,
+		spectateConn: nil,
+		gameID:       r.GameID,
+		playerID:     r.PlayerID,
+		StateCh:      ch,
+		PingCh:       pingCh,
 	}
+}
+
+func (c *connection) close() {
+	c.spectateConn.Close(200, "client disconnecting")
+	c.updateConn.Close(200, "client disconnecting")
+	c.pingConn.Close(200, "client disconnecting")
 }
 
 func (c *connection) Connect() {
@@ -124,6 +131,7 @@ func (c *connection) Connect() {
 			s := game.State{}
 			_, b, err := spectateConn.Read(context.Background())
 			if err != nil {
+				c.close()
 				s.Finished = true
 				c.StateCh <- s
 				return
@@ -137,7 +145,8 @@ func (c *connection) Connect() {
 		}
 	}()
 	c.updateConn = inputConn
-	c.spectate = spectateConn
+	c.spectateConn = spectateConn
+	c.pingConn = pingConn
 }
 
 func (c *connection) sendInputs(in *game.Inputs, ping time.Duration) {
@@ -147,6 +156,7 @@ func (c *connection) sendInputs(in *game.Inputs, ping time.Duration) {
 	})
 	err := c.updateConn.Write(context.Background(), websocket.MessageText, b)
 	if err != nil {
+		c.close()
 		c.StateCh <- game.State{Finished: true}
 	}
 }
